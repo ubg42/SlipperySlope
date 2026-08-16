@@ -12,55 +12,101 @@
 <script src="https://ubg42.github.io/AUTOMECHANIC_BUILD/v2.js"></script>
 
 <script>
-    // Wait until the Yandex SDK is actually available
-    function initYandexSDK() {
-        if (typeof YaGames === "undefined") {
-            console.error("Yandex Games SDK failed to load.");
-            console.warn("YaGames is undefined. Running without Yandex SDK.");
-            return;
-        }
+let ysdk = null;
+let player = null;
+let payments = null;
 
-        YaGames.init()
-            .then(ysdk => {
-                console.log("Yandex SDK initialized");
+let promptCanShow = false;
+let reviewCanShow = false;
+let initSDK = false;
+let initGame = false;
+let photoSizeForInit;
+let scopesForInit;
 
-                window.ysdk = ysdk;
-                initSDK = true;
+function isYandexGames() {
+    return !!(
+        window.YandexGamesSDKEnvironment ||
+        window.YaGames
+    );
+}
 
-                InitPayments();
+function initYandexSDK() {
 
-                try {
-                    ysdk.shortcut.canShowPrompt().then(prompt => {
-                        if (prompt.canShow) {
-                            promptCanShow = true;
-                        }
-                    });
-                } catch (e) {
-                    console.error("canShowPrompt:", e);
-                }
-
-                try {
-                    ysdk.feedback.canReview().then(({ value, reason }) => {
-                        if (value) {
-                            reviewCanShow = true;
-                        } else {
-                            console.log("reviewCanShow = false", reason);
-                        }
-                    });
-                } catch (e) {
-                    console.error("feedback:", e);
-                }
-
-                if (initGame === true) {
-                    AuthorizationCheck(photoSizeForInit, scopesForInit);
-                }
-            })
-            .catch(e => {
-                console.error("Yandex SDK initialization failed:", e);
-            });
+    if (typeof YaGames === "undefined") {
+        console.log("Yandex SDK not available - running standalone.");
+        return;
     }
 
-    initYandexSDK();
+    console.log("Initializing Yandex Games SDK...");
+
+    YaGames.init()
+        .then(_ysdk => {
+
+            ysdk = _ysdk;
+            window.ysdk = _ysdk;
+
+            initSDK = true;
+
+            console.log("Yandex SDK initialized");
+
+            // Only use Yandex APIs after initialization
+            try {
+                InitPayments();
+            } catch (e) {
+                console.log("Payments unavailable:", e);
+            }
+
+            try {
+                ysdk.shortcut.canShowPrompt()
+                    .then(prompt => {
+                        promptCanShow = !!prompt.canShow;
+                    })
+                    .catch(() => {
+                        promptCanShow = false;
+                    });
+            } catch (e) {
+                promptCanShow = false;
+            }
+
+            try {
+                ysdk.feedback.canReview()
+                    .then(({ value, reason }) => {
+                        reviewCanShow = !!value;
+
+                        if (!value) {
+                            console.log(
+                                "Review unavailable:",
+                                reason
+                            );
+                        }
+                    })
+                    .catch(() => {
+                        reviewCanShow = false;
+                    });
+            } catch (e) {
+                reviewCanShow = false;
+            }
+
+            if (initGame === true) {
+                AuthorizationCheck(
+                    photoSizeForInit,
+                    scopesForInit
+                );
+            }
+
+        })
+        .catch(e => {
+
+            console.log(
+                "Yandex SDK unavailable:",
+                e
+            );
+
+            ysdk = null;
+            window.ysdk = null;
+            initSDK = false;
+        });
+}
 </script>
 <!-- /Yandex.Metrika counter -->
 </head>
@@ -153,47 +199,6 @@
         });
     };
 
-    YaGames.init()
-        .then(ysdk => {
-            console.log('Init Yandex SDK');
-            window.ysdk = ysdk;
-            initSDK = true;
-            InitPayments();
-
-            try {
-                ysdk.shortcut.canShowPrompt().then(prompt => {
-                    if (prompt.canShow) {
-                        promptCanShow = true;
-                    }
-                });
-            } catch (e) {
-                console.error('CRASH canShowPrompt: ', e.message);
-            }
-
-            try {
-                ysdk.feedback.canReview().then(({ value, reason }) => {
-                    if (value) {
-                        reviewCanShow = true;
-                    } else {
-                        console.log('reviewCanShow = false', reason)
-                    }
-                })
-
-                ysdk.shortcut.canShowPrompt().then(prompt => {
-                    if (prompt.canShow) {
-                        promptCanShow = true;
-                    }
-                });
-            } catch (e) {
-                console.error('CRASH canShowFeedback: ', e.message);
-            }
-
-            if (initGame == true) {
-                AuthorizationCheck(photoSizeForInit, scopesForInit)
-            }
-            else {
-            }
-        });
 
     function AuthorizationCheck(photoSize, scopes) {
         console.log('Init GAME');
